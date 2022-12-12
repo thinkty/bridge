@@ -1,6 +1,4 @@
-#include "../include/helper.h"
-
-#define BUFFERSIZE (100)
+#include "helper.h"
 
 void * handle(void * csock);
 

@@ -1,4 +1,4 @@
-#include "../include/helper.h"
+#include "helper.h"
 
 /**
  * Helper function to connect to given host and port
@@ -73,7 +73,7 @@ int h_listen(unsigned short port) {
  * Helper function to accept connections
  */
 int h_accept(int sock) {
-	int csockaddrlen = sizeof(struct sockaddr_in);
+	socklen_t csockaddrlen = sizeof(struct sockaddr_in);
 	struct sockaddr_in csockaddr;
 	int csock = accept(sock, (struct sockaddr *) &csockaddr, &csockaddrlen);
 	return csock;

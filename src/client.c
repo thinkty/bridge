@@ -1,4 +1,4 @@
-#include "../include/helper.h"
+#include "helper.h"
 
 int chandle(int);
 
