@@ -19,7 +19,6 @@
 
 int h_listen(unsigned short);
 int h_accept(int);
-int h_connect(const char *, const char *);
 
 #endif
 
