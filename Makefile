@@ -1,7 +1,7 @@
 .POSIX:    # Parse it an run in POSIX conforming mode
 .SUFFIXES: # Delete the default suffixes (inference rules)
 
-CC=gcc
+CC=g++
 CFLAGS=-g -Wall -I$(IDIR)
 LDLIBS=-pthread
 OUTPUT=bridge
@@ -10,7 +10,7 @@ IDIR=$(ROOTDIR)/include
 SDIR=$(ROOTDIR)/src
 ODIR=$(ROOTDIR)/obj
 
-_DEPS = helper.h
+_DEPS = helper.hh
 DEPS = $(addprefix $(IDIR)/,$(_DEPS))
 
 _OBJS = bridge.o helper.o
@@ -24,7 +24,7 @@ $(OBJS): | $(ODIR)
 $(ODIR):
 	mkdir $(ODIR)
 
-$(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
+$(ODIR)/%.o: $(SDIR)/%.cc $(DEPS)
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 .PHONY: clean

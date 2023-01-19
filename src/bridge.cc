@@ -1,4 +1,4 @@
-#include "helper.h"
+#include "helper.hh"
 
 void * handle(void * csock);
 
@@ -6,50 +6,52 @@ int main(int argc, char *argv[])
 {
 	// Check arguments
 	if (argc != 2) {
-		printf("main()\n");
-		return 1;
+		std::cout << "usage: bridge <port>" << std::endl;
+		return ERR;
 	}
 
 	// Listen to port
 	int sock = h_listen((unsigned short) atoi(argv[1]));
 	if (sock < 0) {
-		printf("h_listen()\n");
-		return 1;
+		return ERR;
 	}
 
-	// Accept incoming connections and handle it
-	for (;;) {
-		int * csock = (int *) malloc(sizeof(int));
+	while (1) {
+
+		// Allocate memory for the connecting socket
+		int * csock = new int;
 		if (csock == NULL) {
-			printf("malloc()\n");
+			std::cerr << "Unable to allocate for connecting socket" << std::endl;
 			close(sock);
-			return 1;
+			return ERR;
 		}
 
-		*csock = h_accept(sock);
-		if (*csock < 0) {
-			printf("h_accept()\n");
+		// Accept incoming connections and handle requests
+		if (h_accept(sock, csock) < 0) {
 			close(sock);
-			return 1;
+			delete csock;
+			return ERR;
 		}
 
-		// Handle client in new thread
+		// Handle request in new thread
 		pthread_t thread;
 		if (pthread_create(&thread, NULL, handle, csock) != 0) {
-			printf("pthread_create()\n");
+			perror("Unable to create thread to handle request");
 			close(*csock);
+			delete csock;
 			close(sock);
-			return 1;
+			return ERR;
 		}
 		if (pthread_detach(thread) != 0) {
-			printf("pthread_detach()\n");
+			perror("Unable to detach request handler thread");
 			close(*csock);
+			delete csock;
 			close(sock);
-			return 1;
+			return ERR;
 		}
 	}
 
-	// Clean up - I don't think this part is reachable
+	// Clean up
 	close(sock);
 	return 0;	
 }
@@ -61,15 +63,15 @@ void * handle(void * csock)
 {
 	// Parse argument
 	int sock = *((int *) csock);
-	free(csock);
+	delete (int *)csock;
 
 	// Read for buffer size
 	// if bigger than buffersize, too bad :/
 	char buff[BUFFERSIZE] = {0};
 	int ret = 0;
-	for (;;) {
+	while(1) {
 		if ((ret = read(sock, buff, BUFFERSIZE)) < 0) {
-			fprintf(stderr, "read()\n");
+			std::cerr << "read()" << std::endl;
 			close(sock);
 			return NULL;
 		}
@@ -84,7 +86,7 @@ void * handle(void * csock)
 		printf("< %s", buff);
 
 		if (write(sock, buff, ret) <= 0) {
-			fprintf(stderr, "write()\n");
+			std::cerr << "write()" << std::endl;
 			close(sock);
 			return NULL;
 		}
