@@ -14,7 +14,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#define LISTEN_Q_LEN    (5)
+#define LISTEN_Q_LEN (5)
 #define BUFFERSIZE (100)
 
 int h_listen(unsigned short);
