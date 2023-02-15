@@ -1,30 +1,33 @@
+.POSIX:    # Parse it an run in POSIX conforming mode
+.SUFFIXES: # Delete the default suffixes (inference rules)
+
 CC=gcc
 CFLAGS=-g -Wall -I$(IDIR)
+LDLIBS=-lcurses
+OUTPUT=server.exe
 ROOTDIR=.
 IDIR=$(ROOTDIR)/include
 SDIR=$(ROOTDIR)/src
 ODIR=$(ROOTDIR)/obj
-LIBS=-pthread
 
-_DEPS = helper.h
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+_DEPS=helper.h
+DEPS=$(addprefix $(IDIR)/,$(_DEPS))
 
-_OBJ = client.o server.o helper.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+_OBJS=helper.o server.o
+OBJS=$(addprefix $(ODIR)/,$(_OBJS))
 
-all: server client
+$(OUTPUT): $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@ $^
 
-server: $(ODIR)/helper.o $(ODIR)/server.o
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+$(OBJS): | $(ODIR)
 
-client: $(ODIR)/helper.o $(ODIR)/client.o
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+$(ODIR):
+	mkdir $(ODIR)
 
 $(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c $(CFLAGS) -o $@ $<
 
-.PHONY: clean
-
+.PHONY: clean 
 clean:
-	rm -f $(ODIR)/*.o client server
+	rm -rf $(ODIR) $(OUTPUT)
 
