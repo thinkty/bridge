@@ -1,23 +1,13 @@
 #ifndef __TCP_H
 #define __TCP_H
 
+#include <arpa/inet.h>  /* sockaddr_in, htons(), htonl() */
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
-#include <pthread.h>
-
-#ifdef _WIN32
-	/* For */
-	#include <winsock2.h>
-#else
-	/* For sockaddr_in, htons(), htonl() */
-	#include <arpa/inet.h>
-	/* For socket(), setsockopt(), bind(), listen(), accept() */
-	#include <sys/socket.h>
-	/* For  read(), write() */
-	#include <unistd.h>
-#endif
+#include <sys/socket.h> /* socket(), bind(), listen(), accept() */
+#include <unistd.h>     /* read(), write() */
 
 #define OK  (0)
 #define ERR (-1)
