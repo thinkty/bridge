@@ -12,8 +12,7 @@
 #define OK  (0)
 #define ERR (-1)
 
-#define SOCK_LISTEN_Q_LEN (5) /* Number of connections to buffer */
-#define SOCK_BUFFER_SIZE  (100)
+#define SOCK_LISTEN_Q_LEN (5) /* Number of connections to buffer on socket */
 
 /**
  * @brief Create socket, bind to given port, and listen.

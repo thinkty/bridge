@@ -13,7 +13,7 @@ ODIR=$(ROOTDIR)/obj
 _DEPS=tcp.h
 DEPS=$(addprefix $(IDIR)/,$(_DEPS))
 
-_OBJS=tcp.o bridge.o
+_OBJS=tcp.o server.o main.o
 OBJS=$(addprefix $(ODIR)/,$(_OBJS))
 
 $(OUTPUT): $(OBJS)
