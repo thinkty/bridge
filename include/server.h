@@ -1,5 +1,5 @@
-#ifndef __SERVER_H
-#define __SERVER_H
+#ifndef BRIDGE_SERVER_H
+#define BRIDGE_SERVER_H
 
 #include "tcp.h"
 

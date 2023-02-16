@@ -8,6 +8,8 @@ int main(int argc, char *argv[])
 		return ERR;
 	}
 
+    debug("Starting Bridge on port %s", argv[1]);
+
     /* Start the bridge server */
     run_bridge_server((unsigned short) atoi(argv[1]));
 }

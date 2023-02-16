@@ -1,5 +1,5 @@
-#ifndef __TCP_H
-#define __TCP_H
+#ifndef BRIDGE_TCP_H
+#define BRIDGE_TCP_H
 
 #include <arpa/inet.h>  /* sockaddr_in, htons(), htonl() */
 #include <pthread.h>
@@ -9,8 +9,7 @@
 #include <sys/socket.h> /* socket(), bind(), listen(), accept() */
 #include <unistd.h>     /* read(), write() */
 
-#define OK  (0)
-#define ERR (-1)
+#include "util.h"
 
 #define SOCK_LISTEN_Q_LEN (5) /* Number of connections to buffer on socket */
 
