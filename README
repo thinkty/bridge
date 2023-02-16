@@ -1,4 +1,8 @@
 
-A simple TCP server template for Linux made following the Beej's guide to network programming. The code currently has a simple echo server and client. The server is handling connections by creating/detaching threads. The helper.h/helper.c contains various helper functions to abstract the network process. Modify the handle segments of the server and client to suit your needs.
+A simple TCP server template for Linux made following the Beej's guide to network programming.
+The code currently has a simple echo server.
+The server is handling connections by creating/detaching threads on each request.
+The helper.h and helper.c contains various helper functions to abstract the network process.
+Modify the handle segments of the server to suit your needs.
 
 @see https://beej.us/guide/bgnet/
