@@ -1,16 +1,19 @@
 #include "server.h"
 
-void * run_bridge_server(unsigned short port)
+void * run_bridge_server(void * args)
 {
+	bridge_server_args_t * bs_args = (bridge_server_args_t *) args;
+
 	/* Setup TCP IPv4 port */
-	int sock = tcp_listen(port);
+	int sock = tcp_listen(bs_args->port);
 	if (sock < 0) {
 		fprintf(stderr, "Failed to setup port\n");
 		return NULL;
 	}
 
 	/* Accept incoming connections and handle it in new thread */
-	for (;;) {
+	int run = 1;
+	while (run) {
 		int csock;
 		if (tcp_accept(sock, &csock) != OK) {
 			fprintf(stderr, "Failed to accept new connection\n");
@@ -19,10 +22,11 @@ void * run_bridge_server(unsigned short port)
 		}
 
 		/* Handle client in new thread */
-		pthread_t thread;
-		if (pthread_create(&thread, NULL, handle, &csock) != 0 ||
-				pthread_detach(thread) != 0) {
-			perror("pthread()");
+		pthread_t h_th;
+		if (pthread_create(&h_th, NULL, handle, &csock) != 0 ||
+				pthread_detach(h_th) != 0)
+		{
+			perror("pthread(handle)");
 			close(sock);
 			close(csock);
 			return NULL;
