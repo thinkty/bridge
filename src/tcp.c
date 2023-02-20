@@ -38,7 +38,7 @@ int tcp_listen(unsigned short port)
 	return sock;
 }
 
-int tcp_accept(int sock, int * csock)
+int tcp_accept(int sock, int * csock, entry_t * entry)
 {
 	struct sockaddr_in caddr;
 	socklen_t caddrlen = sizeof(caddr);
@@ -50,6 +50,7 @@ int tcp_accept(int sock, int * csock)
 		return ERR;
 	}
 
+	entry->ip = ntohl(caddr.sin_addr.s_addr);
+	entry->port = ntohs(caddr.sin_port);
 	return OK;
 }
-

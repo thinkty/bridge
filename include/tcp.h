@@ -9,6 +9,7 @@
 #include <sys/socket.h> /* socket(), bind(), listen(), accept() */
 #include <unistd.h>     /* read(), write() */
 
+#include "table.h"
 #include "util.h"
 
 #define SOCK_LISTEN_Q_LEN (5) /* Number of connections to buffer on socket */
@@ -30,7 +31,7 @@ int tcp_listen(unsigned short port);
  *
  * @return OK on success. ERR on failure.
  */
-int tcp_accept(int sock, int * csock);
+int tcp_accept(int sock, int * csock, entry_t * entry);
 
 #endif
 
