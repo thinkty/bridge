@@ -33,5 +33,15 @@ int tcp_listen(unsigned short port);
  */
 int tcp_accept(int sock, int * csock, entry_t * entry);
 
-#endif
+/**
+ * @brief Write to the given client socket the message of specified length.
+ * 
+ * @param csock Client socket
+ * @param msg Buffer containing the message to send
+ * @param len Length of the message
+ * 
+ * @return OK on success. ERR on failure.
+ */
+int tcp_write(int csock, const char * msg, size_t len);
 
+#endif

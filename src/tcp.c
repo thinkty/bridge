@@ -54,3 +54,13 @@ int tcp_accept(int sock, int * csock, entry_t * entry)
 	entry->port = ntohs(caddr.sin_port);
 	return OK;
 }
+
+int tcp_write(int csock, const char * msg, size_t len)
+{
+	if (write(csock, msg, len) < 0) {
+		perror("write()");
+		return ERR;
+	}
+
+	return OK;
+}
