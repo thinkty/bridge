@@ -2,31 +2,18 @@
 #define BRIDGE_MAIN_H
 
 #include "server.h"
+#include "table.h"
 #include "tui.h"
 
 /**
  * @brief Initialize the bridge server thread and run it
  *
- * @param args Server port, mutexes, etc.
+ * @param port Port to run the bridge server instance
+ * @param thrd Thread to run the bridge server
+ * @param table The table to store subscription information
  *
- * @returns OK on success and ERR on failure.
+ * @returns OK on success, ERR on failure.
  */
-int run_server_thread(bridge_server_args_t * args);
-
-/**
- * @brief Signal the server thread to stop
- * 
- * @param args Server port, mutexes, etc.
- */
-void stop_server_thread(bridge_server_args_t * args);
-
-/**
- * @brief Cleanup any threads, mutexes.
- *
- * @param arsg Holds server mutexes
- *
- * @returns OK on success and ERR on failure.
- */
-int cleanup(bridge_server_args_t * args);
+int run_server_thread(unsigned short port, pthread_t * thrd, table_t * table);
 
 #endif

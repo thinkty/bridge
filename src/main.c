@@ -5,20 +5,23 @@ int main(int argc, char *argv[])
 	/* Check arguments */
 	unsigned short port;
 	if (argc != 2 ||
-			argv[1] == NULL ||
-			(port = (unsigned short) atoi(argv[1])) == 0)
+		argv[1] == NULL ||
+		(port = (unsigned short) atoi(argv[1])) == 0)
 	{
 		printf("Usage: %s <port>\n", argv[0]);
 		return ERR;
 	}
 	debug("Starting Bridge on port %s", argv[1]);
 
-	/* TODO: Initialize name-address table */
+	/* Initialize name-address table */
+	table_t table;
+	if (init_table(&table) != OK) {
+		return ERR;
+	}
 
 	/* Run the bridge server */
-	bridge_server_args_t args;
-	args.port = port;
-	if (run_server_thread(&args) != OK) {
+	pthread_t bridge_thr;
+	if (run_server_thread(port, &bridge_thr, &table) != OK) {
 		return ERR;
 	}
 
@@ -27,23 +30,27 @@ int main(int argc, char *argv[])
 		return ERR;
 	}
 
+	/* Clean up */
+	// cleanup(bridge_thr);
+
 	return OK;
 }
 
-int run_server_thread(bridge_server_args_t * args)
+int run_server_thread(unsigned short port, pthread_t * thrd, table_t * table)
 {
-	if (args == NULL) {
+	if (port == 0 || table == NULL) {
 		return ERR;
 	}
 
-	/* Initialize the mutex lock */
-	if (pthread_mutex_init(&args->table_lock, NULL)) {
-		perror("pthread_mutex_init()");
-	}
+	bridge_server_args_t args = {
+		.port = port,
+		.thrd = thrd,
+		.table = table
+	};
 
 	/* Create and run the thread */
-	if (pthread_create(&args->bridge_thr, NULL, run_bridge_server, &args) ||
-			pthread_detach(args->bridge_thr))
+	if (pthread_create(args.thrd, NULL, run_bridge_server, &args) ||
+		pthread_detach(args.thrd))
 	{
 		perror("pthread_create|detach()");
 		return ERR;
@@ -51,16 +58,3 @@ int run_server_thread(bridge_server_args_t * args)
 
 	return OK;
 }
-
-int cleanup(bridge_server_args_t * args)
-{
-	if (pthread_mutex_destroy(&args->table_lock)) {
-		perror("pthread_mutex_destroy()");
-		return ERR;
-	}
-
-	/* TODO: cleanup any datastructures */
-
-	return OK;
-}
-
