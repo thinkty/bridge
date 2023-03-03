@@ -1,6 +1,9 @@
 # Project specific
 bridge
 
+# VScode
+.vscode/
+
 # Prerequisites
 *.d
 
