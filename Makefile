@@ -11,10 +11,10 @@ IDIR=$(ROOTDIR)/include
 SDIR=$(ROOTDIR)/src
 ODIR=$(ROOTDIR)/obj
 
-_DEPS=tcp.h server.h main.h tui.h util.h
+_DEPS=tcp.h server.h main.h tui.h table.h util.h
 DEPS=$(addprefix $(IDIR)/,$(_DEPS))
 
-_OBJS=tcp.o server.o main.o tui.o
+_OBJS=tcp.o server.o main.o tui.o table.o
 OBJS=$(addprefix $(ODIR)/,$(_OBJS))
 
 all: $(OUTPUT)
