@@ -24,14 +24,17 @@
 int tcp_listen(unsigned short port);
 
 /**
- * @brief Wait (block) and accept new connections.
+ * @brief Wait (block), accept new connections, and save connection client info
+ * ip and port to the given address.
  *
  * @param sock TCP server socket
  * @param csock TCP client socket
+ * @param ip IP address of the requester
+ * @param port Port number of the requester
  *
  * @return OK on success. ERR on failure.
  */
-int tcp_accept(int sock, int * csock, entry_t * entry);
+int tcp_accept(int sock, int * csock, uint32_t * ip, uint16_t * port);
 
 /**
  * @brief Write to the given client socket the message of specified length.
