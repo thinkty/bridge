@@ -10,8 +10,11 @@
 #include "table.h"
 #include "util.h"
 
-#define TUI_HEADER_HEIGHT (1)
-#define TUI_LOGGER_HEIGHT (5)
+#define TUI_BORDERS          (2)
+#define TUI_HEADER_HEIGHT    (1)
+#define TUI_LOGGER_HEIGHT    (5)
+#define TUI_MIN_TABLE_HEIGHT (5)
+#define TUI_KEY_HEIGHT       (1)
 
 /* Status enum */
 enum Status {
@@ -42,6 +45,11 @@ typedef struct logs {
  * @param status If finish is set to 1, stop all threads and clean up
  * @param ip IP address of the server
  * @param port Port number assigned to the server
+ * @param title_scr Window to display title and server IP & port
+ * @param log_scr Window to display logs
+ * @param table_scr Window to display the topic table
+ * @param topic_scr Window to display the list of subscribers for the selected topic
+ * @param key_scr Window to display available keys
  */
 typedef struct ui {
     logs_t logs;
@@ -50,6 +58,11 @@ typedef struct ui {
     enum Status status;
     char ip[INET_ADDRSTRLEN];
     uint16_t port;
+    WINDOW * title_scr;
+    WINDOW * log_scr;
+    WINDOW * table_scr;
+    WINDOW * topic_scr;
+    WINDOW * key_scr;
 } ui_t;
 
 /**
@@ -85,9 +98,34 @@ void * run_tui(void * args);
 void display_server_info(const ui_t * ui);
 
 /**
+ * @brief Display the logs.
+ * 
+ * @param ui UI data structure to get the logs
+*/
+void display_logs(const ui_t * ui);
+
+/**
+ * @brief Display the table.
+ * 
+ * @param ui UI data structure
+ * @param table Table storing all the topics and subscribers
+*/
+void display_table(const ui_t * ui, const table_t * table);
+
+/**
+ * @brief Display the subscribers for the currently selected topic.
+ * 
+ * @param ui UI data structure
+ * @param table Table storing all the topics and subscribers
+*/
+void display_subscribers(const ui_t * ui, const table_t * table);
+
+/**
  * @brief Display the key options to the bottom.
+ *
+ * @param ui UI data structure
  */
-void display_keys();
+void display_keys(const ui_t * ui);
 
 /**
  * @brief End Ncurses mode and free UI.

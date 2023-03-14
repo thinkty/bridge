@@ -48,10 +48,8 @@ void handle_input(table_t * table, ui_t * ui)
 		return;
 	}
 
-	printf("."); // TODO:
-
 	for (;;) {
-		int input = getch();
+		int input = wgetch(ui->title_scr);
 
 		switch (input) {
 
