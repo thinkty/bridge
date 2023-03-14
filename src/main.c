@@ -2,59 +2,85 @@
 
 int main(int argc, char *argv[])
 {
-	/* Check arguments */
-	unsigned short port;
-	if (argc != 2 ||
-		argv[1] == NULL ||
-		(port = (unsigned short) atoi(argv[1])) == 0)
-	{
-		printf("Usage: %s <port>\n", argv[0]);
-		return ERR;
-	}
-	debug("Starting Bridge on port %s", argv[1]);
-
-	/* Initialize name-address table */
-	table_t table;
-	if (init_table(&table) != OK) {
+	/* Initialize UI and topic-subscriber table */
+	thr_args_t args = {
+		.table = init_table(),
+		.ui = init_tui(),
+	};
+	if (args.table == NULL || args.ui == NULL) {
+		fprintf(stderr, "Error : failed to initialize\n");
 		return ERR;
 	}
 
-	/* Run the bridge server */
-	pthread_t bridge_thr;
-	if (run_server_thread(port, &bridge_thr, &table) != OK) {
+	/* Run the server thread and detach */
+	pthread_t server_thr;
+	if (pthread_create(&server_thr, NULL, run_server, &args)) {
+		cleanup_table(args.table);
+		cleanup_ui(args.ui);
+		fprintf(stderr, "Error : failed to run server thread\n");
 		return ERR;
 	}
 
-	/* Run as UI thread and block */
-	if (run_tui() != OK) {
+	/* Run the UI thread */
+	pthread_t ui_thr;
+	if (pthread_create(&ui_thr, NULL, run_tui, &args)) {
+		cleanup_table(args.table);
+		cleanup_ui(args.ui);
+		fprintf(stderr, "Error : failed to run UI thread\n");
 		return ERR;
 	}
+
+	/* Block and handle user input */
+	handle_input(args.table, args.ui);
 
 	/* Clean up */
-	// cleanup(bridge_thr);
+	pthread_cancel(server_thr);
+	pthread_cancel(ui_thr);
+	cleanup_table(args.table);
+	cleanup_ui(args.ui);
 
 	return OK;
 }
 
-int run_server_thread(unsigned short port, pthread_t * thrd, table_t * table)
+void handle_input(table_t * table, ui_t * ui)
 {
-	if (port == 0 || table == NULL) {
-		return ERR;
+	if (ui == NULL || table == NULL) {
+		return;
 	}
 
-	bridge_server_args_t args = {
-		.port = port,
-		.thrd = thrd,
-		.table = table
-	};
+	printf("."); // TODO:
 
-	/* Create and run the thread */
-	if (pthread_create(args.thrd, NULL, run_bridge_server, &args) ||
-		pthread_detach(args.thrd))
-	{
-		perror("pthread_create|detach()");
-		return ERR;
+	for (;;) {
+		int input = getch();
+
+		switch (input) {
+
+			/* Increment current index */
+			case KEY_PPAGE:
+			case KEY_UP:
+				if (ui->index < table->num_entries) {
+					ui->index++;
+					sem_post(ui->update_sem);
+				}
+				break;
+
+			/* Decrement current index */
+			case KEY_NPAGE:
+			case KEY_DOWN:
+				if (ui->index > 0) {
+					ui->index--;
+					sem_post(ui->update_sem);
+				}
+				break;
+
+			/* Quit the program */ 
+			case 'q':
+				ui->status = FINISH;
+				sem_post(ui->update_sem);
+				return;
+
+			default:
+				break;
+		}
 	}
-
-	return OK;
 }

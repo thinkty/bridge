@@ -1,59 +1,104 @@
 #include "tui.h"
 
-int run_tui()
+ui_t * init_tui()
 {
 	/* Initialize ncurses mode */
 	initscr();
 
 	/* Allow control characters, disable echo, allow function keys */
-	if (cbreak() != OK ||
-			noecho() != OK ||
-			keypad(stdscr, TRUE) != OK)
-	{
-		fprintf(stderr, "Failed to set ncurses options\n");
-		return ERR;
+	if (cbreak() != OK || noecho() != OK || keypad(stdscr, TRUE) != OK) {
+		endwin();
+		return NULL;
 	}
 
-	ui_t args;
-	args.index = 0;
+	/* Initialize UI and its fields */
+	ui_t * ui = malloc(sizeof(ui_t));
+	if (ui == NULL) {
+		perror("malloc(ui_t)");
+		return NULL;
+	}
+	ui->index = 0;
+	ui->status = START;
+	ui->update_sem = malloc(sizeof(sem_t));
+	if (ui->update_sem == NULL) {
+		perror("malloc(ui_t->update_sem");
+		return NULL;
+	}
+	if (sem_init(ui->update_sem, 0, 1)) {
+		perror("sem_init(ui->update_sem)");
+		return NULL;
+	}
+	ui->logs.list = malloc(sizeof(char *) * TUI_LOGGER_HEIGHT);
+	if (ui->logs.list == NULL) {
+		perror("malloc(ui_t->logs.list)");
+		return NULL;
+	}
+	ui->logs.size = TUI_LOGGER_HEIGHT;
+	ui->logs.head = 0;
+	for (int i = 0; i < TUI_LOGGER_HEIGHT; i++) {
+		ui->logs.list[i] = NULL;
+	}
 
-	/* TODO: maybe display screen in a separate thread so that */
-	/* input handling and table update does not collide? */
-	display_screen(&args);
-
-	/* Handle user input */
-	handle_input(&args);
-
-	/* Finish UI mode */
-	endwin();
-
-	return OK;
+	return ui;
 }
 
-void display_screen(ui_t * args)
+void * run_tui(void * args)
 {
-	clear();
+	table_t * table = ((ui_args_t *) args)->table;
+	ui_t * ui = ((ui_args_t *) args)->ui;
+	if (table == NULL || ui == NULL) {
+		return NULL;
+	}
 
-	/* TODO: take and display volatile table */
+	/* Detach from main thread */
+	if (pthread_detach(pthread_self())) {
+		return NULL;
+	}
 
-	/* Border around window */
+	/* Refresh the UI when needed */
+	for (;;) {
+		/* Check status and quit if FINISH */
+		if (ui->status == FINISH) {
+			return NULL;
+		}
+
+		/* Wait for update */
+		sem_wait(ui->update_sem);
+		if (ui->status == FINISH) {
+			return NULL;
+		}
+
+		/* Clear the previous stuff on screen */
+		clear();
+
+		/* TODO: make sure there is enough screen to display all */
+
+		/* TODO: the top two lines are reserved for the ???  */
+
+		display_server_info(ui);
+
+		/* TODO: wait for mutex and display table */
+
+		display_keys();		
+	}
+}
+
+void display_server_info(const ui_t * ui)
+{
+	/* Display at the top */
+	mvprintw(0, 0, "Bridge - %s:%u", ui->ip, ui->port);
+}
+
+void display_keys()
+{
+	/* Show keys on bottom */
 	int maxy = getmaxy(stdscr);
-
-	/* Show menu on bottom */
 	move(maxy-1, 0);
-	display_menu();
-
-	/* TODO:  */
-	mvprintw(0, 0, "index: %d", args->index);
-}
-
-void display_menu()
-{
-	addstr(" PgUp ");
+	addstr(" ArrUp ");
 	attron(A_STANDOUT);
 	addstr(" Move Up ");
 	attroff(A_STANDOUT);
-	addstr(" PgDn ");
+	addstr(" ArrDn ");
 	attron(A_STANDOUT);
 	addstr(" Move Down ");
 	attroff(A_STANDOUT);
@@ -63,35 +108,26 @@ void display_menu()
 	attroff(A_STANDOUT);
 }
 
-void handle_input(ui_t * args)
+void cleanup_ui(ui_t * ui)
 {
-	for (;;) {
-		int input = getch();
+	/* End curses mode */
+	endwin();
 
-		switch (input) {
+	// TODO: free anything else
 
-			/* Increment current index */
-			case KEY_PPAGE:
-				// TODO: set upper limit
-				args->index++;
-				break;
-
-			/* Decrement current index */
-			case KEY_NPAGE:
-				if (args->index > 0) {
-					args->index--;
-				}
-				break;
-
-			/* Quit the program */ 
-			case 'q':
-				return;
-			
-			default:
-				break;
+	if (ui != NULL) {
+		if (ui->update_sem != NULL) {
+			sem_destroy(ui->update_sem);
+			free(ui->update_sem);
 		}
-
-		display_screen(args);
-
+		if (ui->logs.list != NULL) {
+			for (int i = 0; i < ui->logs.size; i++) {
+				if (ui->logs.list[i] != NULL) {
+					free(ui->logs.list[i]);
+				}
+			}
+			free(ui->logs.list);
+		}
+		free(ui);
 	}
 }
