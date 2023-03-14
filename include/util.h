@@ -3,8 +3,13 @@
 
 #include <stdio.h>
 
+#ifndef OK
 #define OK  (0)
+#endif
+
+#ifndef ERR
 #define ERR (-1)
+#endif
 
 /* To enable debug logs, compile with the -DDEBUG flag to define it */
 
