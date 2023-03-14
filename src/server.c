@@ -15,8 +15,7 @@ void * run_server(void * args)
 
 	int sock = tcp_listen();
 	if (sock < 0) {
-		// TODO: add logging
-		fprintf(stderr, "Error : failed to initialize server\n");
+		log_tui(ui, "Error : failed to initialize server");
 		return NULL;
 	}
 
@@ -31,18 +30,15 @@ void * run_server(void * args)
 		};
 
 		if (tcp_accept(sock, &hndlr_args.csock, &hndlr_args.ip, &hndlr_args.port) != OK) {
-			// TODO: main program needs to know that server has quit
-			// TODO: make a field in the UI to display logs from the server
-			fprintf(stderr, "Failed to accept new connection");
+			log_tui(ui, "Error : failed to accept new connection");
 			return NULL;
 		}
+		log_new_connection(ui, hndlr_args.ip, hndlr_args.port);
 
 		/* Spawn new thread to handle client */
 		pthread_t h_thr;
 		if (pthread_create(&h_thr, NULL, handle, &hndlr_args) || pthread_detach(h_thr)) {
-			// TODO: main program needs to know that server has quit
-			// TODO: make a field in the UI to display logs from the server
-			fprintf(stderr, "Failed to create handler thread");
+			log_tui(ui, "Error : failed to create handler thread");
 			close(hndlr_args.csock);
 			return NULL;
 		}
@@ -83,18 +79,37 @@ void fetch_server_info(ui_t * ui, int sock)
 	}
 }
 
+void log_new_connection(ui_t * ui, uint32_t ip, uint16_t port)
+{
+	/* Parse the four fields of the IP address */
+	unsigned int f4 = 0xff & ip;
+	ip = ip >> 8;
+	unsigned int f3 = 0xff & ip;
+	ip = ip >> 8;
+	unsigned int f2 = 0xff & ip;
+	ip = ip >> 8;
+	unsigned int f1 = 0xff & ip;
+
+	char temp[100];
+	sprintf(temp, "New connection from %u.%u.%u.%u:%u", f1, f2, f3, f4, port);
+	log_tui(ui, temp);
+}
+
 void * handle(void * args)
 {
 	int csock = ((handler_args_t *) args)->csock;
     uint32_t ip = ((handler_args_t *) args)->ip;
     uint16_t port = ((handler_args_t *) args)->port;
 	table_t * table = ((handler_args_t *) args)->table;
+	ui_t * ui = ((handler_args_t *) args)->ui;
 	ssize_t ret;
+
+	// TODO: is nothing getting read ?
 
 	/* Parse command */
 	char cmd[P_CMD_LEN+1];
 	if ((ret = read(csock, cmd, P_CMD_LEN)) < 0) {
-		perror("read(cmd)");
+		log_tui(ui, "Unable to read from csock");
 		close(csock);
 		return NULL;
 	} else if (ret == 0) {
@@ -146,9 +161,6 @@ void subscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t p
 
 	/* Adding to table returns a positive value if it already exists */
 	if (ret > 0) {
-
-		// TODO: use logging tui
-		// debug("%d is already subscribed to %s", port, topic);
 
 		/* Free the duplicate */
 		free(subscriber);

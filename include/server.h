@@ -1,9 +1,11 @@
 #ifndef BRIDGE_SERVER_H
 #define BRIDGE_SERVER_H
 
+#include <ifaddrs.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
+#include <sys/types.h>  /* getifaddrs() */
 #include <unistd.h>
 
 #include "table.h"
@@ -60,8 +62,17 @@ void * run_server(void * args);
  * 
  * @param ui Initialized UI data structure
  * @param sock Server socket descriptor
-*/
+ */
 void fetch_server_info(ui_t * ui, int sock);
+
+/**
+ * @brief Log the newly accepted connection
+ * 
+ * @param ui Initialized UI data structure
+ * @param ip IP address of the requester
+ * @param port Port number of the requester
+ */
+void log_new_connection(ui_t * ui, uint32_t ip, uint16_t port);
 
 /**
  * @brief Handle the connection between newly accepted client. Parse the input

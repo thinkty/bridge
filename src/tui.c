@@ -25,14 +25,8 @@ ui_t * init_tui()
 		perror("malloc|sem_init(ui_t->update_sem");
 		return NULL;
 	}
-	ui->logs.list = malloc(sizeof(char *) * TUI_LOGGER_HEIGHT);
-	if (ui->logs.list == NULL) {
-		cleanup_ui(ui);
-		perror("malloc(ui_t->logs.list)");
-		return NULL;
-	}
-	ui->logs.size = TUI_LOGGER_HEIGHT;
 	ui->logs.head = 0;
+	ui->logs.tail = 0;
 	for (int i = 0; i < TUI_LOGGER_HEIGHT; i++) {
 		ui->logs.list[i] = NULL;
 	}
@@ -74,6 +68,45 @@ ui_t * init_tui()
 	}
 
 	return ui;
+}
+
+void log_tui(ui_t * ui, char * message)
+{
+	if (ui == NULL) {
+		return;
+	}
+
+	/* If there is a message at tail, free it */
+	if (ui->logs.list[ui->logs.tail] != NULL) {
+		free(ui->logs.list[ui->logs.tail]);
+		ui->logs.list[ui->logs.tail] = NULL;
+
+		if (ui->logs.tail == ui->logs.head) {
+			ui->logs.head++;
+			if (ui->logs.head >= TUI_LOGGER_HEIGHT) {
+				ui->logs.head = 0;
+			}
+		}
+	}
+
+	ui->logs.list[ui->logs.tail] = malloc(strlen(message));
+	if (ui->logs.list[ui->logs.tail] == NULL) {
+		/* TODO: Should reset the indices for tail and head as well */
+		return;
+	}
+
+
+	/* Copy the message to list */
+	strcpy(ui->logs.list[ui->logs.tail], message);
+	ui->logs.tail++;
+	
+	/* If it goes beyond, wrap around */
+	if (ui->logs.tail >= TUI_LOGGER_HEIGHT) {
+		ui->logs.tail = 0;
+	}
+
+	/* Signal to update */
+	sem_post(ui->update_sem);
 }
 
 void * run_tui(void * args)
@@ -129,8 +162,14 @@ void display_logs(const ui_t * ui)
 	mvwprintw(ui->log_scr, 0, 2, "Logs");
 
 	/* Print the actual logs */
-	wmove(ui->log_scr, 1, 0);
-	// TODO:
+	for (int i = 0; i < TUI_LOGGER_HEIGHT; i++) {
+		int index = (ui->logs.head + i) % TUI_LOGGER_HEIGHT;
+		if (ui->logs.list[index] == NULL) {
+			continue;
+		}
+		wmove(ui->log_scr, i+1, 1);
+		wprintw(ui->log_scr, ui->logs.list[index]);
+	}
 
 	wrefresh(ui->log_scr);
 }
@@ -202,14 +241,13 @@ void cleanup_ui(ui_t * ui)
 			free(ui->update_sem);
 		}
 
-		/* Free the log list */
-		if (ui->logs.list != NULL) {
-			for (int i = 0; i < ui->logs.size; i++) {
-				if (ui->logs.list[i] != NULL) {
-					free(ui->logs.list[i]);
-				}
+		/* Free the messages in the log list */
+		while (ui->logs.head != ui->logs.tail) {
+			free(ui->logs.list[ui->logs.head]);
+			ui->logs.head++;
+			if (ui->logs.head >= TUI_LOGGER_HEIGHT) {
+				ui->logs.head = 0;
 			}
-			free(ui->logs.list);
 		}
 
 		/* Free the windows */

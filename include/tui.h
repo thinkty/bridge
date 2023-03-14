@@ -26,13 +26,13 @@ enum Status {
  * @brief Data structure to store the logs to be displayed in the UI.
  * 
  * @param list The circular buffer of strings that holds the actual logs
- * @param size The size of the list
- * @param head The next index to store the log (for the circular buffer)
+ * @param head The index of the first message
+ * @param tail The index of the last message
  */
 typedef struct logs {
-    char ** list;
-    int size;
+    char * list[TUI_LOGGER_HEIGHT];
     int head;
+    int tail;
 } logs_t;
 
 /**
@@ -82,6 +82,14 @@ typedef struct ui_args {
  * @returns The newly allocated UI data structure or NULL on error.
  */
 ui_t * init_tui();
+
+/**
+ * @brief Add a new message to the logs to display.
+ * 
+ * @param ui Initialized UI data structure
+ * @param message New null-terminated message to display
+*/
+void log_tui(ui_t * ui, char * message);
 
 /**
  * @brief Display the table and logs.

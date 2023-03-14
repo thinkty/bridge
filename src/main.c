@@ -11,6 +11,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error : failed to initialize\n");
 		return ERR;
 	}
+	log_tui(args.ui, "UI and table initialized...");
 
 	/* Run the server thread and detach */
 	pthread_t server_thr;
@@ -20,6 +21,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error : failed to run server thread\n");
 		return ERR;
 	}
+	log_tui(args.ui, "Server thread detached and running...");
 
 	/* Run the UI thread */
 	pthread_t ui_thr;
@@ -29,6 +31,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error : failed to run UI thread\n");
 		return ERR;
 	}
+	log_tui(args.ui, "UI thread detached and running...");
 
 	/* Block and handle user input */
 	handle_input(args.table, args.ui);
@@ -78,6 +81,7 @@ void handle_input(table_t * table, ui_t * ui)
 				return;
 
 			default:
+				/* TODO: not handling reactive display at the moment */
 				break;
 		}
 	}
