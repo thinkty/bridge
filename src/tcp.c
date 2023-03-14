@@ -1,6 +1,6 @@
 #include "tcp.h"
 
-int tcp_listen(unsigned short port)
+int tcp_listen()
 {
 	/* Create TCP socket for IPv4 */
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -16,11 +16,11 @@ int tcp_listen(unsigned short port)
 		return ERR;
 	}
 
-	/* Bind socket to given port */
+	/* Bind socket to any available port */
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
+	addr.sin_port = htons(0);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 		perror("bind()");

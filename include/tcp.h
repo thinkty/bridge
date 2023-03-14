@@ -2,26 +2,22 @@
 #define BRIDGE_TCP_H
 
 #include <arpa/inet.h>  /* sockaddr_in, htons(), htonl() */
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h> /* socket(), bind(), listen(), accept() */
 #include <unistd.h>     /* read(), write() */
 
-#include "table.h"
 #include "util.h"
 
 #define SOCK_LISTEN_Q_LEN (5) /* Number of connections to buffer on socket */
 
 /**
- * @brief Create socket, bind to given port, and listen.
- *
- * @param port Port number
+ * @brief Create socket, bind to available port, and listen.
  *
  * @return Server socket on success. ERR on failure.
  */
-int tcp_listen(unsigned short port);
+int tcp_listen();
 
 /**
  * @brief Wait (block), accept new connections, and save connection client info
