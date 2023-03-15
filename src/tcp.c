@@ -46,7 +46,6 @@ int tcp_accept(int sock, int * csock, uint32_t * ip, uint16_t * port)
 	/* Block until new connection requested */
 	*csock = accept(sock, (struct sockaddr *) &caddr, &caddrlen);
 	if (*csock < 0) {
-		perror("accept()");
 		return ERR;
 	}
 
@@ -58,7 +57,6 @@ int tcp_accept(int sock, int * csock, uint32_t * ip, uint16_t * port)
 int tcp_write(int csock, const char * msg, size_t len)
 {
 	if (write(csock, msg, len) < 0) {
-		perror("write()");
 		return ERR;
 	}
 
