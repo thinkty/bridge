@@ -8,13 +8,9 @@ void * run_server(void * args)
 		return NULL;
 	}
 
-	/* Detach from main thread */
-	if (pthread_detach(pthread_self())) {
-		return NULL;
-	}
-
-	int sock = tcp_listen();
-	if (sock < 0) {
+	/* Detach from main thread and setup socket to listen for connections */
+	int sock;
+	if (pthread_detach(pthread_self()) || (sock = tcp_listen()) < 0) {
 		log_tui(ui, "Error : failed to initialize server");
 		return NULL;
 	}
@@ -24,22 +20,24 @@ void * run_server(void * args)
 
 	/* Block to accept incoming connections */
 	for (;;) {
-		handler_args_t hndlr_args = {
-			.table = table,
-			.ui = ui,
-		};
+		handler_args_t * hndlr_args = malloc(sizeof(handler_args_t));
+		if (hndlr_args == NULL) {
+			return NULL;
+		}
+		hndlr_args->table = table;
+		hndlr_args->ui = ui;
 
-		if (tcp_accept(sock, &hndlr_args.csock, &hndlr_args.ip, &hndlr_args.port) != OK) {
+		if (tcp_accept(sock, &hndlr_args->csock, &hndlr_args->ip, &hndlr_args->port) != OK) {
 			log_tui(ui, "Error : failed to accept new connection");
 			return NULL;
 		}
-		log_new_connection(ui, hndlr_args.ip, hndlr_args.port);
 
 		/* Spawn new thread to handle client */
 		pthread_t h_thr;
-		if (pthread_create(&h_thr, NULL, handle, &hndlr_args) || pthread_detach(h_thr)) {
+		if (pthread_create(&h_thr, NULL, handle, hndlr_args) || pthread_detach(h_thr)) {
 			log_tui(ui, "Error : failed to create handler thread");
-			close(hndlr_args.csock);
+			close(hndlr_args->csock);
+			free(hndlr_args);
 			return NULL;
 		}
 	}
@@ -79,7 +77,52 @@ void fetch_server_info(ui_t * ui, int sock)
 	}
 }
 
-void log_new_connection(ui_t * ui, uint32_t ip, uint16_t port)
+void * handle(void * args)
+{
+	handler_args_t * hndlr_args = (handler_args_t *) args;
+	int csock = hndlr_args->csock;
+    uint32_t ip = hndlr_args->ip;
+    uint16_t port = hndlr_args->port;
+	table_t * table = hndlr_args->table;
+	ui_t * ui = hndlr_args->ui;
+
+	free(hndlr_args);
+	hndlr_args = NULL;
+
+	/* Parse command and topic */
+	enum CMD cmd = parse_cmd(csock);
+	char * topic = parse_topic(csock);
+	if (cmd == CMD_UNDEFINED || topic == NULL) {
+		tcp_write(csock, SERVER_MSG_FAIL, strlen(SERVER_MSG_FAIL));
+		close(csock);
+		return NULL;
+	}
+	log_connection(ui, ip, port, cmd, topic);
+
+	/* Handle command */
+	switch (cmd) {
+		case CMD_SUBSCRIBE:
+			subscribe(table, topic, csock, ip, port);
+			break;
+		case CMD_UNSUBSCRIBE:
+			unsubscribe(table, topic, csock, ip, port);
+			break;
+		case CMD_PUBLISH:
+			publish(table, topic, csock);
+			break;
+		default:
+			tcp_write(csock, SERVER_MSG_FAIL, strlen(SERVER_MSG_FAIL));
+			close(csock);
+			break;
+	}
+	
+	/* TODO: Don't close connection as it may be needed in publishing */
+	free(topic);
+
+	return NULL;
+}
+
+void log_connection(ui_t * ui, uint32_t ip, uint16_t port, enum CMD cmd, char * topic)
 {
 	/* Parse the four fields of the IP address */
 	unsigned int f4 = 0xff & ip;
@@ -90,58 +133,72 @@ void log_new_connection(ui_t * ui, uint32_t ip, uint16_t port)
 	ip = ip >> 8;
 	unsigned int f1 = 0xff & ip;
 
-	char temp[100];
-	sprintf(temp, "New connection from %u.%u.%u.%u:%u", f1, f2, f3, f4, port);
+	char temp[200];
+	if (cmd == CMD_SUBSCRIBE) {
+		sprintf(temp, "Subscribing %u.%u.%u.%u:%u to %s", f1, f2, f3, f4, port, topic);
+	} else if (cmd == CMD_UNSUBSCRIBE) {
+		sprintf(temp, "Unsubscribing %u.%u.%u.%u:%u from %s", f1, f2, f3, f4, port, topic);
+	} else if (cmd == CMD_PUBLISH) {
+		sprintf(temp, "%u.%u.%u.%u:%u publishing to %s", f1, f2, f3, f4, port, topic);
+	} else {
+		return;
+	}
 	log_tui(ui, temp);
 }
 
-void * handle(void * args)
+enum CMD parse_cmd(int csock)
 {
-	int csock = ((handler_args_t *) args)->csock;
-    uint32_t ip = ((handler_args_t *) args)->ip;
-    uint16_t port = ((handler_args_t *) args)->port;
-	table_t * table = ((handler_args_t *) args)->table;
-	ui_t * ui = ((handler_args_t *) args)->ui;
-	ssize_t ret;
+	/* Command is only 1 byte */
+	char buf;
 
-	// TODO: is nothing getting read ?
+	/* If error or EOF, return undefined */
+	if (read(csock, &buf, P_CMD_LEN) <= 0) {
+		return CMD_UNDEFINED;
+	}
 
-	/* Parse command */
-	char cmd[P_CMD_LEN+1];
-	if ((ret = read(csock, cmd, P_CMD_LEN)) < 0) {
-		log_tui(ui, "Unable to read from csock");
-		close(csock);
-		return NULL;
-	} else if (ret == 0) {
+	if (buf == P_CMD_SUBSCRIBE) {
+		return CMD_SUBSCRIBE;
+	}
+	if (buf == P_CMD_UNSUBSCRIBE) {
+		return CMD_UNSUBSCRIBE;
+	}
+	if (buf == P_CMD_PUBLISH) {
+		return CMD_PUBLISH;
+	}
+	return CMD_UNDEFINED;
+}
+
+char * parse_topic(int csock)
+{
+	/* Topic is at length P_TOPIC_LEN (+ null terminator) */
+	char * topic = malloc(P_TOPIC_LEN+1);
+	if (topic == NULL) {
 		return NULL;
 	}
-	cmd[P_CMD_LEN] = '\0';
 
-	/* Parse topic */
-	char topic[P_TOPIC_LEN+1];
-	if ((ret = read(csock, topic, P_TOPIC_LEN)) < 0) {
-		perror("read(topic)");
-		close(csock);
-		return NULL;
-	} else if (ret == 0) {
+	/* Since TCP is byte-stream, there can be cases where it reads less than */
+	/* expected although it should read more. But, I think the size is small */
+	/* enough to ignore that for now. (famouse last words)                   */
+	char buf[P_TOPIC_LEN+1] = {0};
+	size_t ret;
+	if ((ret = read(csock, buf, P_TOPIC_LEN)) < 0) {
+		free(topic);
 		return NULL;
 	}
-	topic[P_TOPIC_LEN] = '\0';
 
-	/* Handle command */
-	if (strncmp(cmd, P_TOPIC_SUBSCRIBE, P_CMD_LEN) == 0) {
-		subscribe(table, topic, csock, ip, port);
-	} else if (strncmp(cmd, P_TOPIC_UNSUBSCRIBE, P_CMD_LEN) == 0) {
-		unsubscribe(table, topic, csock, ip, port);
-	} else if (strncmp(cmd, P_TOPIC_PUBLISH, P_CMD_LEN) == 0) {
-		publish(table, topic, csock);
-	} else {
-		/* Unrecognized command */
-		tcp_write(csock, SERVER_MSG_FAIL, strlen(SERVER_MSG_FAIL));
-		close(csock);
+	/* Skipping non-alphanumerical in buffer */
+	int index = 0;
+	for (int i = 0; i < ret; i++) {
+		if ((buf[i] >= '0' && buf[i] <= '9') ||
+			(buf[i] >= 'a' && buf[i] <= 'z') ||
+			(buf[i] >= 'A' && buf[i] <= 'Z'))
+		{
+			topic[index++] = buf[i];
+		}
 	}
-	
-	return NULL;
+	topic[index] = '\0';
+
+	return topic;
 }
 
 void subscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t port)
