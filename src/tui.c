@@ -45,7 +45,7 @@ ui_t * init_tui()
 		return NULL;
 	}
 	ui->key_scr = newwin(TUI_KEY_HEIGHT, width, height-1, 0);
-	if (ui->key_scr == NULL) {
+	if (ui->key_scr == NULL || keypad(ui->key_scr, TRUE) != OK) {
 		cleanup_ui(ui);
 		return NULL;
 	}
@@ -148,6 +148,9 @@ void * run_tui(void * args)
 
 void display_server_info(const ui_t * ui)
 {
+	/* Clear the previous stuff on screen */
+	wclear(ui->title_scr);
+
 	/* Display at the top */
 	mvwprintw(ui->title_scr, 0, 1, "Bridge - %s:%u", ui->ip, ui->port);
 	wrefresh(ui->title_scr);
@@ -155,6 +158,9 @@ void display_server_info(const ui_t * ui)
 
 void display_logs(const ui_t * ui)
 {
+	/* Clear the previous stuff on screen */
+	wclear(ui->log_scr);
+
 	/* Border */
 	box(ui->log_scr, 0, 0);
 
@@ -176,11 +182,14 @@ void display_logs(const ui_t * ui)
 
 void display_table(const ui_t * ui, const table_t * table)
 {
+	/* Clear the previous stuff on screen */
+	wclear(ui->table_scr);
+
 	/* Border */
 	box(ui->table_scr, 0, 0);
 
 	/* Title */
-	mvwprintw(ui->table_scr, 0, 2, "Table");
+	mvwprintw(ui->table_scr, 0, 2, "Table (%ld)", table->num_topics);
 
 	/* Return if nothing in table */
 	if (table->num_topics == 0) {
@@ -201,7 +210,9 @@ void display_table(const ui_t * ui, const table_t * table)
 		}
 
 		/* Adding 1s since border */
+		pthread_mutex_lock(table->lock);
 		mvwprintw(ui->table_scr, num+1, 1, table->map[i]->str);
+		pthread_mutex_unlock(table->lock);
 		if (num == ui->index) {
 			wattroff(ui->table_scr, A_STANDOUT);
 		}
@@ -213,6 +224,9 @@ void display_table(const ui_t * ui, const table_t * table)
 
 void display_subscribers(const ui_t * ui, const table_t * table)
 {
+	/* Clear the previous stuff on screen */
+	wclear(ui->topic_scr);
+
 	/* Border */
 	box(ui->topic_scr, 0, 0);
 
@@ -235,6 +249,7 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 		/* Print all the subscribers to the topic */
 		if (num == ui->index) {
 			int sub_num = 0;
+			pthread_mutex_lock(table->lock);
 			subscriber_t * subscriber = table->map[i]->subscriber;
 			while (subscriber != NULL) {
 
@@ -250,6 +265,7 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 				subscriber = subscriber->next;
 				sub_num++;
 			}
+			pthread_mutex_unlock(table->lock);
 			break;
 		}
 
