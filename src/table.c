@@ -51,9 +51,11 @@ topic_t * get_topic(table_t * table, char * topic_str)
 	uint64_t index = hash(topic_str, table->map_size);
 
 	/* If it breaks from the while loop, topic does not exist */
+	pthread_mutex_lock(table->lock);
 	while (table->map[index] != NULL) {
 
 		if (strcmp(table->map[index]->str, topic_str) == 0) {
+			pthread_mutex_unlock(table->lock);
 			return table->map[index];
 		}
 
@@ -63,6 +65,7 @@ topic_t * get_topic(table_t * table, char * topic_str)
 			index = 0;
 		}
 	}
+	pthread_mutex_unlock(table->lock);
 
 	return NULL;
 }
@@ -84,9 +87,11 @@ topic_t * set_topic(table_t * table, char * topic_str)
 	strncpy(topic->str, topic_str, TABLE_TOPIC_LEN);
 
 	/* If table is full, double the table size and re-insert */
+	pthread_mutex_lock(table->lock);
 	if (table->num_topics + 1 >= table->map_size) {
 		topic_t ** new_map = malloc(sizeof(topic_t *) * (table->map_size * 2));
 		if (new_map == NULL) {
+			pthread_mutex_unlock(table->lock);
 			return NULL;
 		}
 
@@ -109,11 +114,14 @@ topic_t * set_topic(table_t * table, char * topic_str)
 	}
 
 	insert_topic(table, topic);
+	pthread_mutex_unlock(table->lock);
 	return topic;
 }
 
 void insert_topic(table_t * table, topic_t * topic)
 {
+	/* Assumes the table mutex is locked before calling this function */
+
 	uint64_t index = hash(topic->str, table->map_size);
 
 	for(;;) {
@@ -243,7 +251,8 @@ void cleanup_table(table_t * table)
 				}
 
 				/* Close the client socket */
-				close(list->csock);
+				// TODO: for some reason, this is causing segmentation fault
+				// close(list->csock);
 			}
 
 			free(table->map[i]);

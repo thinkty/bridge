@@ -52,22 +52,26 @@ void handle_input(table_t * table, ui_t * ui)
 	}
 
 	for (;;) {
-		int input = wgetch(ui->title_scr);
+		int input = wgetch(ui->key_scr);
 
 		switch (input) {
 
 			/* Increment current index */
-			case KEY_PPAGE:
-			case KEY_UP:
-				if (ui->index < table->num_entries) {
+			case KEY_NPAGE:
+			case KEY_DOWN:
+				pthread_mutex_lock(table->lock);
+				if (ui->index < table->num_topics) {
+					pthread_mutex_unlock(table->lock);
 					ui->index++;
 					sem_post(ui->update_sem);
+					break;
 				}
+				pthread_mutex_unlock(table->lock);
 				break;
 
 			/* Decrement current index */
-			case KEY_NPAGE:
-			case KEY_DOWN:
+			case KEY_PPAGE:
+			case KEY_UP:
 				if (ui->index > 0) {
 					ui->index--;
 					sem_post(ui->update_sem);
