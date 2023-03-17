@@ -182,12 +182,31 @@ void display_table(const ui_t * ui, const table_t * table)
 	/* Title */
 	mvwprintw(ui->table_scr, 0, 2, "Table");
 
-	/* Print the entries in the table */
-	wmove(ui->table_scr, 1, 0);
-	if (table->num_entries != 0) {
-		// TODO:
+	/* Return if nothing in table */
+	if (table->num_topics == 0) {
+		wrefresh(ui->table_scr);
+		return;
 	}
-	// TODO: also highlight the currently selected one
+
+	/* Print the entries in the table */
+	int num = 0;
+	for (int i = 0; i < table->map_size; i++) {
+		if (table->map[i] == NULL) {
+			continue;
+		}
+
+		/* Highlight the current selection */
+		if (num == ui->index) {
+			wattron(ui->table_scr, A_STANDOUT);
+		}
+
+		/* Adding 1s since border */
+		mvwprintw(ui->table_scr, num+1, 1, table->map[i]->str);
+		if (num == ui->index) {
+			wattroff(ui->table_scr, A_STANDOUT);
+		}
+		num++;
+	}
 
 	wrefresh(ui->table_scr);
 }
@@ -200,10 +219,42 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 	/* Title */
 	mvwprintw(ui->topic_scr, 0, 2, "Topic");
 
-	/* Print the subscribers for the selected topic */
-	wmove(ui->topic_scr, 1, 0);
-	if (table->num_entries != 0) {
-		// TODO:
+	/* Return if nothing in table */
+	if (table->num_topics == 0) {
+		wrefresh(ui->topic_scr);
+		return;
+	}
+
+	/* Iterate to the currently selected topic */
+	int num = 0;
+	for (int i = 0; i < table->map_size; i++) {
+		if (table->map[i] == NULL) {
+			continue;
+		}
+
+		/* Print all the subscribers to the topic */
+		if (num == ui->index) {
+			int sub_num = 0;
+			subscriber_t * subscriber = table->map[i]->subscriber;
+			while (subscriber != NULL) {
+
+				uint32_t ip = subscriber->ip;
+				unsigned int f4 = 0xff & ip; ip = ip >> 8;
+				unsigned int f3 = 0xff & ip; ip = ip >> 8;
+				unsigned int f2 = 0xff & ip; ip = ip >> 8;
+				unsigned int f1 = 0xff & ip;
+
+				/* Adding 1s since border */
+				mvwprintw(ui->topic_scr, sub_num+1, 1, "%u.%u.%u.%u:%u (%d)", f1, f2, f3, f4, subscriber->port, subscriber->csock);
+
+				subscriber = subscriber->next;
+				sub_num++;
+			}
+			break;
+		}
+
+		/* If not current selected topic, increment */
+		num++;
 	}
 
 	wrefresh(ui->topic_scr);

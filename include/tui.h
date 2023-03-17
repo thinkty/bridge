@@ -40,7 +40,7 @@ typedef struct logs {
  * index in the UI, etc.
  * 
  * @param logs List of logs
- * @param index Currently selected entry (topic) in the table
+ * @param index Currently selected topic in the table
  * @param update_sem Semaphore to indicate number of updates pending
  * @param status If finish is set to 1, stop all threads and clean up
  * @param ip IP address of the server
