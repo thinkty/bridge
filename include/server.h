@@ -12,6 +12,8 @@
 #include "tcp.h"
 #include "tui.h"
 
+#define SERVER_BUF_SIZE   (100)
+
 /* Protocol related constants */
 #define P_CMD_LEN         (1)
 #define P_CMD_SUBSCRIBE   'S'

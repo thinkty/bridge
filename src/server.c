@@ -103,9 +103,13 @@ void * handle(void * args)
 	switch (cmd) {
 		case CMD_SUBSCRIBE:
 			subscribe(table, topic, csock, ip, port);
+			/* Signal to update the UI */
+			sem_post(ui->update_sem);
 			break;
 		case CMD_UNSUBSCRIBE:
 			unsubscribe(table, topic, csock, ip, port);
+			/* Signal to update the UI */
+			sem_post(ui->update_sem);
 			break;
 		case CMD_PUBLISH:
 			publish(table, topic, csock);
@@ -191,12 +195,20 @@ char * parse_topic(int csock)
 	for (int i = 0; i < ret; i++) {
 		if ((buf[i] >= '0' && buf[i] <= '9') ||
 			(buf[i] >= 'a' && buf[i] <= 'z') ||
-			(buf[i] >= 'A' && buf[i] <= 'Z'))
+			(buf[i] >= 'A' && buf[i] <= 'Z') ||
+			(buf[i] == ' '))
 		{
 			topic[index++] = buf[i];
 		}
 	}
+
+	/* Pad it with spaces */
+	while (index < P_TOPIC_LEN) {
+		topic[index] = ' ';
+		index++;
+	}
 	topic[index] = '\0';
+	topic[P_TOPIC_LEN] = '\0';
 
 	return topic;
 }
@@ -223,7 +235,7 @@ void subscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t p
 		free(subscriber);
 		subscriber = NULL;
 
-	} else if (ret != OK) {
+	} else if (ret == ERR) {
 		/* On ERR, something went wrong with the table */
 		tcp_write(csock, SERVER_MSG_FAIL, strlen(SERVER_MSG_FAIL));
 		close(csock);
@@ -254,13 +266,41 @@ void unsubscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t
 	remove_sub(table, topic, temp);
 
 	/* Regardless whether it exists in the table or not, send OK */
-	if (tcp_write(csock, SERVER_MSG_OK, strlen(SERVER_MSG_OK)) != OK) {
-		/* If unable to send confirmation, close socket */
-		close(csock);
-	}	
+	tcp_write(csock, SERVER_MSG_OK, strlen(SERVER_MSG_OK));
+	close(csock);
 }
 
 void publish(table_t * table, char * topic, int csock)
-{
-	// If error sending, remove from subscriber list
+{	
+	/* Get the list of subscribers to send the message to */
+	topic_t * temp = get_topic(table, topic);
+	if (temp == NULL) {
+		close(csock);
+		return;
+	}
+	if (temp->subscriber == NULL) {
+		close(csock);
+		return;
+	}
+
+	/* Read from the publisher */
+	char buf[SERVER_BUF_SIZE] = {0};
+	size_t ret;
+	while ((ret = read(csock, buf, SERVER_BUF_SIZE)) > 0) {
+
+		/* Pass on the message to the subscribers  */
+		subscriber_t * subscribers = temp->subscriber;
+		while (subscribers != NULL) {
+			/* If error during write, remove the unsubscribe */
+			if (tcp_write(subscribers->csock, buf, ret) != OK) {
+				subscribers = subscribers->next;
+				remove_sub(table, topic, *(subscribers->prev));
+			} else {
+				subscribers = subscribers->next;
+			}
+		}
+	}
+
+	/* Cleanup */
+	close(csock);
 }
