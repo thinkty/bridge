@@ -105,6 +105,7 @@ topic_t * set_topic(table_t * table, char * topic_str);
  * @brief A helper function to insert a given topic object into the hash map.
  * The function assumes that the parameters are valid and the map has enough
  * space to insert the topic using linear probing.
+ * The function also assumes that the table mutex is locked prior.
  * 
  * @param table Table to insert to
  * @param topic Topic object
