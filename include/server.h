@@ -55,11 +55,11 @@ typedef struct server_args {
  * @param table Table containing all topic entries
  */
 typedef struct handler_args {
-	int csock;
-    uint32_t ip;
-    uint16_t port;
 	table_t * table;
 	ui_t * ui;
+    uint32_t ip;
+    uint16_t port;
+	int csock;
 } handler_args_t;
 
 /**
@@ -110,10 +110,11 @@ enum CMD parse_cmd(int csock);
  * @brief Read and parse the topic with length of P_TOPIC_LEN.
  * 
  * @param csock Client socket file descriptor
+ * @param topic 7 bytes long character array to store topic
  * 
- * @returns Allocated topic string or NULL on error.
+ * @returns OK on successfully topic parsed.
  */
-char * parse_topic(int csock);
+int parse_topic(int csock, char * topic);
 
 /**
  * @brief Handle subscribing to a new topic.

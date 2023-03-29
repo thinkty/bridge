@@ -79,20 +79,20 @@ void fetch_server_info(ui_t * ui, int sock)
 
 void * handle(void * args)
 {
-	handler_args_t * hndlr_args = (handler_args_t *) args;
+	handler_args_t * hndlr_args = args;
 	int csock = hndlr_args->csock;
     uint32_t ip = hndlr_args->ip;
     uint16_t port = hndlr_args->port;
 	table_t * table = hndlr_args->table;
 	ui_t * ui = hndlr_args->ui;
 
-	free(hndlr_args);
-	hndlr_args = NULL;
+	/* Free after copying all the values to local */
+	free(args);
 
 	/* Parse command and topic */
 	enum CMD cmd = parse_cmd(csock);
-	char * topic = parse_topic(csock);
-	if (cmd == CMD_UNDEFINED || topic == NULL) {
+	char topic[TABLE_TOPIC_LEN+1];
+	if (cmd == CMD_UNDEFINED || parse_topic(csock, topic) != OK) {
 		tcp_write(csock, SERVER_MSG_FAIL, strlen(SERVER_MSG_FAIL));
 		close(csock);
 		return NULL;
@@ -119,9 +119,8 @@ void * handle(void * args)
 			close(csock);
 			break;
 	}
-	
+
 	/* TODO: Don't close connection as it may be needed in publishing */
-	free(topic);
 
 	return NULL;
 }
@@ -172,22 +171,15 @@ enum CMD parse_cmd(int csock)
 	return CMD_UNDEFINED;
 }
 
-char * parse_topic(int csock)
+int parse_topic(int csock, char * topic)
 {
-	/* Topic is at length P_TOPIC_LEN (+ null terminator) */
-	char * topic = malloc(P_TOPIC_LEN+1);
-	if (topic == NULL) {
-		return NULL;
-	}
-
 	/* Since TCP is byte-stream, there can be cases where it reads less than */
 	/* expected although it should read more. But, I think the size is small */
 	/* enough to ignore that for now. (famouse last words)                   */
 	char buf[P_TOPIC_LEN+1] = {0};
 	size_t ret;
 	if ((ret = read(csock, buf, P_TOPIC_LEN)) < 0) {
-		free(topic);
-		return NULL;
+		return ERR;
 	}
 
 	/* Skipping non-alphanumerical in buffer */
@@ -210,7 +202,7 @@ char * parse_topic(int csock)
 	topic[index] = '\0';
 	topic[P_TOPIC_LEN] = '\0';
 
-	return topic;
+	return OK;
 }
 
 void subscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t port)
@@ -295,6 +287,7 @@ void publish(table_t * table, char * topic, int csock)
 			if (tcp_write(subscribers->csock, buf, ret) != OK) {
 				subscribers = subscribers->next;
 				remove_sub(table, topic, *(subscribers->prev));
+				// TODO: handling phantom subscriber is problematic
 			} else {
 				subscribers = subscribers->next;
 			}
