@@ -12,7 +12,8 @@
 
 #define TUI_BORDERS          (2)
 #define TUI_HEADER_HEIGHT    (1)
-#define TUI_LOGGER_HEIGHT    (5)
+#define TUI_LOGGER_HEIGHT    (5) /* Also the size of logs array */
+#define TUI_LOGGER_LENGTH    (100) /* 100 characters for logs */
 #define TUI_MIN_TABLE_HEIGHT (5)
 #define TUI_KEY_HEIGHT       (1)
 
@@ -23,23 +24,12 @@ enum Status {
 };
 
 /**
- * @brief Data structure to store the logs to be displayed in the UI.
- * 
- * @param list The circular buffer of strings that holds the actual logs
- * @param head The index of the first message
- * @param tail The index of the last message
- */
-typedef struct logs {
-    char * list[TUI_LOGGER_HEIGHT];
-    int head;
-    int tail;
-} logs_t;
-
-/**
  * @brief This will be used throughout the program to display logs, handle the
  * index in the UI, etc.
  * 
- * @param logs List of logs
+ * @param logs Circular buffer of logs
+ * @param log_head The index of the most recent log
+ * @param log_tail The index of the oldest log
  * @param index Currently selected topic in the table
  * @param update_sem Semaphore to indicate number of updates pending
  * @param status If finish is set to 1, stop all threads and clean up
@@ -52,7 +42,9 @@ typedef struct logs {
  * @param key_scr Window to display available keys
  */
 typedef struct ui {
-    logs_t logs;
+    char logs[TUI_LOGGER_HEIGHT][TUI_LOGGER_LENGTH+1];
+    int log_head;
+    int log_tail;
     int index;
     sem_t * update_sem;
     enum Status status;

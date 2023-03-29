@@ -19,16 +19,22 @@ ui_t * init_tui()
 	}
 	ui->index = 0;
 	ui->status = START;
+
+	/* Initialize the semaphore for indicating refresh */
 	ui->update_sem = malloc(sizeof(sem_t));
 	if (ui->update_sem == NULL || sem_init(ui->update_sem, 0, 1)) {
 		cleanup_ui(ui);
 		perror("malloc|sem_init(ui_t->update_sem");
 		return NULL;
 	}
-	ui->logs.head = 0;
-	ui->logs.tail = 0;
+
+	/* Initialize the logs */
+	ui->log_head = 0;
+	ui->log_tail = 0;
 	for (int i = 0; i < TUI_LOGGER_HEIGHT; i++) {
-		ui->logs.list[i] = NULL;
+		for (int j = 0; j < TUI_LOGGER_LENGTH; j++) {
+			memset(ui->logs[i], 0, TUI_LOGGER_LENGTH+1);
+		}
 	}
 
 	/* Allocate new windows for logging, table, and keys */
@@ -72,37 +78,30 @@ ui_t * init_tui()
 
 void log_tui(ui_t * ui, char * message)
 {
-	if (ui == NULL) {
+	if (ui == NULL || message == NULL) {
 		return;
 	}
 
-	/* If there is a message at tail, free it */
-	if (ui->logs.list[ui->logs.tail] != NULL) {
-		free(ui->logs.list[ui->logs.tail]);
-		ui->logs.list[ui->logs.tail] = NULL;
+	/* If there is something at tail, clear it before overwriting */
+	if (ui->logs[ui->log_head][0] != 0) {
+		memset(ui->logs[ui->log_head], 0, TUI_LOGGER_LENGTH+1);
+	}
 
-		if (ui->logs.tail == ui->logs.head) {
-			ui->logs.head++;
-			if (ui->logs.head >= TUI_LOGGER_HEIGHT) {
-				ui->logs.head = 0;
-			}
+	/* If the oldest message needs to be cleared, increment the tail */
+	if (ui->log_head == ui->log_tail) {
+		ui->log_tail++;
+		if (ui->log_tail >= TUI_LOGGER_HEIGHT) {
+			ui->log_tail = 0;
 		}
 	}
 
-	ui->logs.list[ui->logs.tail] = malloc(strlen(message));
-	if (ui->logs.list[ui->logs.tail] == NULL) {
-		/* TODO: Should reset the indices for tail and head as well */
-		return;
-	}
+	/* Copy in length of whatever is shorter */
+	strncpy(ui->logs[ui->log_head], message, MIN(TUI_LOGGER_LENGTH, strlen(message)));
 
-
-	/* Copy the message to list */
-	strcpy(ui->logs.list[ui->logs.tail], message);
-	ui->logs.tail++;
-	
 	/* If it goes beyond, wrap around */
-	if (ui->logs.tail >= TUI_LOGGER_HEIGHT) {
-		ui->logs.tail = 0;
+	ui->log_head++;
+	if (ui->log_head >= TUI_LOGGER_HEIGHT) {
+		ui->log_head = 0;
 	}
 
 	/* Signal to update */
@@ -169,12 +168,15 @@ void display_logs(const ui_t * ui)
 
 	/* Print the actual logs */
 	for (int i = 0; i < TUI_LOGGER_HEIGHT; i++) {
-		int index = (ui->logs.head + i) % TUI_LOGGER_HEIGHT;
-		if (ui->logs.list[index] == NULL) {
+		int index = (ui->log_tail + i) % TUI_LOGGER_HEIGHT;
+
+		/* Empty, skip */
+		if (ui->logs[index][0] == 0) {
 			continue;
 		}
+
 		wmove(ui->log_scr, i+1, 1);
-		wprintw(ui->log_scr, ui->logs.list[index]);
+		wprintw(ui->log_scr, ui->logs[index]);
 	}
 
 	wrefresh(ui->log_scr);
@@ -306,15 +308,6 @@ void cleanup_ui(ui_t * ui)
 		if (ui->update_sem != NULL) {
 			sem_destroy(ui->update_sem);
 			free(ui->update_sem);
-		}
-
-		/* Free the messages in the log list */
-		while (ui->logs.head != ui->logs.tail) {
-			free(ui->logs.list[ui->logs.head]);
-			ui->logs.head++;
-			if (ui->logs.head >= TUI_LOGGER_HEIGHT) {
-				ui->logs.head = 0;
-			}
 		}
 
 		/* Free the windows */
