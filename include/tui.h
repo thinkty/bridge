@@ -128,6 +128,14 @@ void display_subscribers(const ui_t * ui, const table_t * table);
 void display_keys(const ui_t * ui);
 
 /**
+ * @brief Erase the contents on each screen (window)
+ *
+ * @param ui UI data structure for access to various screens (windows)
+ * @param refresh Whether to refresh or not
+ */
+void clear_screens(const ui_t * ui, bool refresh);
+
+/**
  * @brief End Ncurses mode and free UI.
  * 
  * @param ui UI to free

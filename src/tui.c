@@ -55,13 +55,7 @@ ui_t * init_tui()
 		cleanup_ui(ui);
 		return NULL;
 	}
-
-	/* There should be enough window to display the topics */
 	int table_height = height-(getmaxy(ui->title_scr)+getmaxy(ui->log_scr)+getmaxy(ui->key_scr));
-	if (table_height < TUI_MIN_TABLE_HEIGHT) {
-		cleanup_ui(ui);
-		return NULL;
-	}
 	ui->table_scr = newwin(table_height, width/2, getmaxy(ui->title_scr)+getmaxy(ui->log_scr), 0);
 	if (ui->table_scr == NULL) {
 		cleanup_ui(ui);
@@ -135,8 +129,17 @@ void * run_tui(void * args)
 		}
 
 		/* Clear the previous stuff on screen */
-		clear();
-	
+		clear_screens(ui, true);
+
+		/* There should be enough space to display topics and subscribers */
+		int height = getmaxy(stdscr);
+		int table_height = height-(getmaxy(ui->title_scr)+getmaxy(ui->log_scr)+getmaxy(ui->key_scr));
+		if (table_height < TUI_MIN_TABLE_HEIGHT) {
+			mvwprintw(ui->title_scr, 0, 1, "Screen too small to display topics and subscribers...");
+			wrefresh(ui->title_scr);
+			continue;
+		}
+
 		display_server_info(ui);
 		display_logs(ui);
 		display_table(ui, table);
@@ -233,7 +236,7 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 	box(ui->topic_scr, 0, 0);
 
 	/* Title */
-	mvwprintw(ui->topic_scr, 0, 2, "Topic");
+	mvwprintw(ui->topic_scr, 0, 2, "Subscribers");
 
 	/* Return if nothing in table */
 	if (table->num_topics == 0) {
@@ -295,6 +298,23 @@ void display_keys(const ui_t * ui)
 	waddstr(ui->key_scr, " Quit ");
 	wattroff(ui->key_scr, A_STANDOUT);
 	wrefresh(ui->key_scr);
+}
+
+void clear_screens(const ui_t * ui, bool refresh)
+{
+	wclear(ui->title_scr);
+	wclear(ui->log_scr);
+	wclear(ui->table_scr);
+	wclear(ui->topic_scr);
+	wclear(ui->key_scr);
+
+	if (refresh) {
+		wrefresh(ui->title_scr);
+		wrefresh(ui->log_scr);
+		wrefresh(ui->table_scr);
+		wrefresh(ui->topic_scr);
+		wrefresh(ui->key_scr);
+	}
 }
 
 void cleanup_ui(ui_t * ui)

@@ -84,6 +84,11 @@ void handle_input(table_t * table, ui_t * ui)
 				sem_post(ui->update_sem);
 				return;
 
+			/* Reactive display */
+			case KEY_RESIZE:
+				sem_post(ui->update_sem);
+				break;
+
 			default:
 				/* TODO: not handling reactive display at the moment */
 				break;
