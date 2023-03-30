@@ -55,13 +55,30 @@ ui_t * init_tui()
 		cleanup_ui(ui);
 		return NULL;
 	}
-	int table_height = height-(getmaxy(ui->title_scr)+getmaxy(ui->log_scr)+getmaxy(ui->key_scr));
-	ui->table_scr = newwin(table_height, width/2, getmaxy(ui->title_scr)+getmaxy(ui->log_scr), 0);
+
+	/* Table height will be the left over of all other fixed height windows */
+	int table_height = height
+		-(getmaxy(ui->title_scr)
+		+getmaxy(ui->log_scr)
+		+getmaxy(ui->key_scr));
+
+	ui->table_scr = newwin(
+		table_height,
+		TUI_TABLE_WIDTH,
+		getmaxy(ui->title_scr) + getmaxy(ui->log_scr),
+		0);
+
 	if (ui->table_scr == NULL) {
 		cleanup_ui(ui);
 		return NULL;
 	}
-	ui->topic_scr = newwin(table_height, width/2, getmaxy(ui->title_scr)+getmaxy(ui->log_scr), width/2);
+
+	ui->topic_scr = newwin(
+		table_height,
+		width - TUI_TABLE_WIDTH - 1,
+		getmaxy(ui->title_scr) + getmaxy(ui->log_scr),
+		TUI_TABLE_WIDTH + 1);
+
 	if (ui->topic_scr == NULL) {
 		cleanup_ui(ui);
 		return NULL;
@@ -128,13 +145,11 @@ void * run_tui(void * args)
 			return NULL;
 		}
 
-		/* Clear the previous stuff on screen */
-		clear_screens(ui, true);
-
 		/* There should be enough space to display topics and subscribers */
 		int height = getmaxy(stdscr);
 		int table_height = height-(getmaxy(ui->title_scr)+getmaxy(ui->log_scr)+getmaxy(ui->key_scr));
 		if (table_height < TUI_MIN_TABLE_HEIGHT) {
+			clear_screens(ui, true);
 			mvwprintw(ui->title_scr, 0, 1, "Screen too small to display topics and subscribers...");
 			wrefresh(ui->title_scr);
 			continue;
@@ -235,9 +250,6 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 	/* Border */
 	box(ui->topic_scr, 0, 0);
 
-	/* Title */
-	mvwprintw(ui->topic_scr, 0, 2, "Subscribers");
-
 	/* Return if nothing in table */
 	if (table->num_topics == 0) {
 		wrefresh(ui->topic_scr);
@@ -245,15 +257,14 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 	}
 
 	/* Iterate to the currently selected topic */
-	int num = 0;
+	int topic_num = 0, count = 0;
 	for (int i = 0; i < table->map_size; i++) {
 		if (table->map[i] == NULL) {
 			continue;
 		}
 
 		/* Print all the subscribers to the topic */
-		if (num == ui->index) {
-			int sub_num = 0;
+		if (topic_num == ui->index) {
 			pthread_mutex_lock(table->lock);
 			subscriber_t * subscriber = table->map[i]->subscriber;
 			while (subscriber != NULL) {
@@ -265,18 +276,21 @@ void display_subscribers(const ui_t * ui, const table_t * table)
 				unsigned int f1 = 0xff & ip;
 
 				/* Adding 1s since border */
-				mvwprintw(ui->topic_scr, sub_num+1, 1, "%u.%u.%u.%u:%u (%d)", f1, f2, f3, f4, subscriber->port, subscriber->csock);
+				mvwprintw(ui->topic_scr, count+1, 1, "[%d] %u.%u.%u.%u : %u", subscriber->csock, f1, f2, f3, f4, subscriber->port);
 
 				subscriber = subscriber->next;
-				sub_num++;
+				count++;
 			}
 			pthread_mutex_unlock(table->lock);
 			break;
 		}
 
 		/* If not current selected topic, increment */
-		num++;
+		topic_num++;
 	}
+
+	/* Title */
+	mvwprintw(ui->topic_scr, 0, 2, "Subscribers (%d)", count);
 
 	wrefresh(ui->topic_scr);
 }

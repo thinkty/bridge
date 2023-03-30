@@ -15,6 +15,7 @@
 #define TUI_LOGGER_HEIGHT    (5) /* Also the size of logs array */
 #define TUI_LOGGER_LENGTH    (100) /* 100 characters for logs */
 #define TUI_MIN_TABLE_HEIGHT (5)
+#define TUI_TABLE_WIDTH      (TABLE_TOPIC_LEN + 10)
 #define TUI_KEY_HEIGHT       (1)
 
 /* Status enum */
