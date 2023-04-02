@@ -270,6 +270,7 @@ void publish(table_t * table, char * topic, int csock)
 	/* Get the list of subscribers to send the message to */
 	topic_t * temp = get_topic(table, topic);
 	if (temp == NULL) {
+		tcp_write(csock, SERVER_MSG_OK, strlen(SERVER_MSG_OK));
 		close(csock);
 		return;
 	}
@@ -301,6 +302,9 @@ void publish(table_t * table, char * topic, int csock)
 				subscribers = subscribers->next;
 			}
 		}
+
+		/* Send confirmation for each block sent */
+		tcp_write(csock, SERVER_MSG_OK, strlen(SERVER_MSG_OK));
 	}
 
 	/* If end of publish, send the terminating message */
@@ -348,7 +352,9 @@ int propagate(int csock, char * raw_msg, size_t len)
 	buf[1] = msg_len & 0xFF;
 
 	/* Copy the message to buffer */
-	strncpy(&buf[2], raw_msg, len);
+	for (int i = 0; i < len; i++) {
+		buf[2+i] = raw_msg[i];
+	}
 
 	return tcp_write(csock, buf, len+2);
 }
