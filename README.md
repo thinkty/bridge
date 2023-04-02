@@ -44,11 +44,20 @@ Command (1 byte) | Topic (7 bytes)
 
 ### Publish
 
-For publishing to a topic, the command has to be `P`, followed by 7 bytes to specify the topic to publish to. Then it is followed by variable length of data.
+For publishing to a topic, the command has to be `P`, followed by 7 bytes to specify the topic to publish to. Then it is followed by variable length of data and finish with an EOF to indicate the end.
 
 ```
 Command (1 byte) | Topic (7 bytes) | Data (variable length)
 ```
+
+After the broker receives the publish data, it chunks into an arbitrary length and propagates it to the subscribed hosts.
+For the hosts receiving the published data, the format will be as follows (unsigned short indicating size and bytes of data at maximum 128 bytes).
+
+```
+Length (2 bytes) | Data (at maximum 128 bytes)
+```
+
+To indicate the end of stream, it will be followed by *two* `carriage-return|new-line` similar to HTTP.
 
 ## License
 

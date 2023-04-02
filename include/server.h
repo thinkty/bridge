@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
+#include <sys/time.h>   /* struct timeval */
 #include <sys/types.h>  /* getifaddrs() */
 #include <unistd.h>
 
@@ -12,7 +13,12 @@
 #include "tcp.h"
 #include "tui.h"
 
-#define SERVER_BUF_SIZE   (100)
+/* Miscellanous server constants */
+
+#define SERVER_PF_SIZE    (2)   /* Publish format size is 2 bytes */
+#define SERVER_PF_DATA    (128) /* Publish format data is 128 bytes max */
+#define SERVER_WAIT_SEC   (3)   /* Seconds to wait for heartbeat reply */
+#define SERVER_WAIT_USEC  (0)   /* Microseconds to wait for heartbeat reply */
 
 /* Protocol related constants */
 #define P_CMD_LEN         (1)
@@ -22,8 +28,10 @@
 #define P_TOPIC_LEN       (TABLE_TOPIC_LEN)
 
 /* Server response constants */
-#define SERVER_MSG_OK   "OK"
-#define SERVER_MSG_FAIL "FAIL"
+#define SERVER_MSG_OK   "O"
+#define SERVER_MSG_FAIL "F"
+#define SERVER_MSG_HB   "H"
+#define SERVER_MSG_END  "\r\n\r\n"
 
 /**
  * Commands for the protocol
@@ -146,5 +154,31 @@ void unsubscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t
  * @param csock Client socket descriptor
  */
 void publish(table_t * table, char * topic, int csock);
+
+/**
+ * @brief Sends a heartbeat message to the subscriber and waits at maximum 
+ * SERVER_WAIT_SEC seconds and SERVER_WAIT_USEC microseconds. If the subscriber
+ * does not respond within the given time, will be removed from the list.
+ * 
+ * @param csock Client socket descriptor
+ * 
+ * @returns OK on succesfully heartbeat sent and received.
+ */
+int heartbeat(int csock);
+
+/**
+ * @brief Used to propagate the publisher's message to each subscribers for the
+ * given topic. However, it follows the response format.
+ * 
+ * Response format : [ 4-bytes length ][ data ]
+ * End-of-stream format : [ 4-bytes length ][ \r\n\r\n ]
+ * 
+ * @param csock Client socket descriptor
+ * @param raw_msg Unformatted raw message
+ * @param len Length of the raw_msg
+ * 
+ * @returns OK on successfully message sent.
+ */
+int propagate(int csock, char * raw_msg, size_t len);
 
 #endif

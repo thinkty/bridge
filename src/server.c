@@ -103,13 +103,9 @@ void * handle(void * args)
 	switch (cmd) {
 		case CMD_SUBSCRIBE:
 			subscribe(table, topic, csock, ip, port);
-			/* Signal to update the UI */
-			sem_post(ui->update_sem);
 			break;
 		case CMD_UNSUBSCRIBE:
 			unsubscribe(table, topic, csock, ip, port);
-			/* Signal to update the UI */
-			sem_post(ui->update_sem);
 			break;
 		case CMD_PUBLISH:
 			publish(table, topic, csock);
@@ -120,8 +116,10 @@ void * handle(void * args)
 			break;
 	}
 
-	/* TODO: Don't close connection as it may be needed in publishing */
+	/* Signal to update the UI */
+	sem_post(ui->update_sem);
 
+	/* Not closing connection as it is needed when sending to subs */
 	return NULL;
 }
 
@@ -217,6 +215,14 @@ void subscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t p
 	subscriber->ip = ip;
 	subscriber->port = port;
 
+	/* Set a timeout used for checking if the client is alive */
+	struct timeval wait_time = { SERVER_WAIT_SEC, SERVER_WAIT_USEC };
+	if (setsockopt(csock, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &wait_time, sizeof(wait_time)) == -1) {
+		free(subscriber);
+		close(csock);
+		return;
+	}
+
 	/* Insert to the table */
 	int ret = insert_sub(table, topic, subscriber);
 
@@ -239,9 +245,6 @@ void subscribe(table_t * table, char * topic, int csock, uint32_t ip, uint16_t p
 		/* If unable to send confirmation, revert since client doesn't know */
 		close(csock);
 		remove_sub(table, topic, *subscriber);
-		if (subscriber) {
-			free(subscriber);
-		}
 	}
 }
 
@@ -270,24 +273,44 @@ void publish(table_t * table, char * topic, int csock)
 		close(csock);
 		return;
 	}
-	if (temp->subscriber == NULL) {
-		close(csock);
-		return;
+
+	/* Send a heartbeat to the subscribers to remove dead connections */
+	subscriber_t * subscribers = temp->subscriber;
+	while (subscribers != NULL) {
+		if (heartbeat(subscribers->csock) != OK) {
+			subscribers = subscribers->next;
+			remove_sub(table, topic, *(subscribers->prev));
+		} else {
+			subscribers = subscribers->next;
+		}
 	}
 
 	/* Read from the publisher */
-	char buf[SERVER_BUF_SIZE] = {0};
+	char buf[SERVER_PF_DATA+1] = {0};
 	size_t ret;
-	while ((ret = read(csock, buf, SERVER_BUF_SIZE)) > 0) {
+	while ((ret = read(csock, buf, SERVER_PF_DATA)) > 0) {
 
 		/* Pass on the message to the subscribers  */
-		subscriber_t * subscribers = temp->subscriber;
+		subscribers = temp->subscriber;
 		while (subscribers != NULL) {
 			/* If error during write, remove the unsubscribe */
-			if (tcp_write(subscribers->csock, buf, ret) != OK) {
+			if (propagate(subscribers->csock, buf, ret) != OK) {
 				subscribers = subscribers->next;
 				remove_sub(table, topic, *(subscribers->prev));
-				// TODO: handling phantom subscriber is problematic
+			} else {
+				subscribers = subscribers->next;
+			}
+		}
+	}
+
+	/* If end of publish, send the terminating message */
+	if (ret == 0) {
+		subscribers = temp->subscriber;
+		while (subscribers != NULL) {
+			/* If error during write, remove the unsubscribe */
+			if (propagate(subscribers->csock, SERVER_MSG_END, strlen(SERVER_MSG_END)) != OK) {
+				subscribers = subscribers->next;
+				remove_sub(table, topic, *(subscribers->prev));
 			} else {
 				subscribers = subscribers->next;
 			}
@@ -296,4 +319,36 @@ void publish(table_t * table, char * topic, int csock)
 
 	/* Cleanup */
 	close(csock);
+}
+
+int heartbeat(int csock)
+{
+	/* Send the heartbeat message which is just H */
+	if (tcp_write(csock, SERVER_MSG_HB, 1) != OK) {
+		return ERR;
+	}
+
+	/* If no response within set time, return ERR */
+	char resp;
+	if (recv(csock, &resp, sizeof(resp), 0) <= 0) {
+		return ERR;
+	}
+
+	/* Check the message */
+	return (resp == SERVER_MSG_HB[0] ? OK : ERR);
+}
+
+int propagate(int csock, char * raw_msg, size_t len)
+{
+	char buf[SERVER_PF_SIZE + SERVER_PF_DATA + 1] = {0};
+
+	/* Convert length to 2 bytes */
+	uint16_t msg_len = htons(len);
+	buf[0] = msg_len >> 8;
+	buf[1] = msg_len & 0xFF;
+
+	/* Copy the message to buffer */
+	strncpy(&buf[2], raw_msg, len);
+
+	return tcp_write(csock, buf, len+2);
 }
