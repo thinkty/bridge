@@ -20,7 +20,7 @@ int tcp_listen()
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(0);
+	addr.sin_port = htons(PORT_NUM);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 		perror("bind()");

@@ -11,6 +11,7 @@
 #include "util.h"
 
 #define SOCK_LISTEN_Q_LEN (5) /* Number of connections to buffer on socket */
+#define PORT_NUM (55555)
 
 /**
  * @brief Create socket, bind to available port, and listen.
